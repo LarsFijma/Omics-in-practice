@@ -1,1 +1,43 @@
+# Importing and validating counts
 
+counts_df <- fread("data/gene_counts.tsv", data.table = FALSE, check.names = FALSE)
+metadata <- fread("metadata/sample_metadata.tsv", data.table = FALSE)
+gene_ids <- counts_df[[1]]
+counts <- as.matrix(counts_df[, -1, drop = FALSE])
+rownames(counts) <- gene_ids
+mode(counts) <- "numeric"
+
+#Performing File checks
+stopifnot(!anyDuplicated(rownames(counts)))
+stopifnot(!anyDuplicated(metadata$sample))
+stopifnot(all(counts >= 0))
+stopifnot(all(counts == round(counts)))
+stopifnot(setequal(colnames(counts), metadata$sample))
+metadata <- metadata[match(colnames(counts), metadata$sample), ]
+stopifnot(identical(colnames(counts), metadata$sample))
+rownames(metadata) <- metadata$sample
+
+
+
+#Running differential expression analysis with DESeq2
+
+dds <- DESeq(dds)
+resultsNames(dds)
+
+#Comparing to control
+
+res <- results(
+dds,
+contrast = c("condition", "Treatment", "Control"),
+alpha = 0.05
+)
+summary(res)
+
+#Shrinking log2 fold changer for ranking and visualisation
+
+res_shrunk <- lfcShrink(
+dds,
+contrast = c("condition", "Treatment", "Control"),
+res = res,
+type = "apeglm"
+)
